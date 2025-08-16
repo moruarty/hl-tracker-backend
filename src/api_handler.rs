@@ -7,11 +7,9 @@ use serde_json::json;
 use std::error::Error;
 
 const HYPERLIQUID_API_URL: &str = "https://api.hyperliquid.xyz/info";
-const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
 
 pub async fn get_user_positions(user_address: &str) -> Result<Vec<models::AssetPosition>, Box<dyn Error>> {
     let client = Client::builder()
-        .user_agent(USER_AGENT)
         .build()?;
 
     let request_body = json!({
