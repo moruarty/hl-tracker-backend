@@ -1,12 +1,33 @@
 // src/models.rs
 use serde::{Deserialize, Serialize};
 
-// This struct now represents the entire JSON object returned by the API
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct ClearinghouseState {
-    pub asset_positions: Vec<AssetPosition>,
+pub struct AssetMeta {
+    pub name: String,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AssetCtx {
+    pub mark_px: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Universe {
+    pub universe: Vec<AssetMeta>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CumFunding {
+    pub all_time: String,
+    pub since_open: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ClearinghouseState { pub asset_positions: Vec<AssetPosition> }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -20,6 +41,7 @@ pub struct AssetPosition {
 #[serde(rename_all = "camelCase")]
 pub struct Position {
     pub coin: String,
+    pub cum_funding: CumFunding,
     pub entry_px: Option<String>,
     pub leverage: Leverage,
     pub liquidation_px: Option<String>,
