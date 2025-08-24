@@ -2,9 +2,10 @@
 
 use crate::models::{self, AssetCtx, ClearinghouseState, Universe};
 use reqwest::Client;
-use serde_json::json;
+use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::error::Error;
+use crate::models::TimeframeData;
 
 const HYPERLIQUID_API_URL: &str = "https://api.hyperliquid.xyz/info";
 
@@ -66,4 +67,39 @@ pub async fn get_all_mark_prices() -> Result<HashMap<String, String>, Box<dyn Er
         .collect::<HashMap<String, String>>();
 
     Ok(mark_prices)
+}
+
+pub async fn get_user_portfolio(
+    user_address: &str,
+) -> Result<HashMap<String, TimeframeData>, Box<dyn Error>> {
+    let client = Client::new();
+    let request_body = json!({
+        "type": "portfolio",
+        "user": user_address
+    });
+
+    let response = client
+        .post(HYPERLIQUID_API_URL)
+        .json(&request_body)
+        .send()
+        .await?;
+
+    if !response.status().is_success() {
+        let error_body = response.text().await.unwrap_or_else(|_| "Could not retrieve error body".to_string());
+        let err_msg = format!("API request for portfolio failed. Body: {}", error_body);
+        return Err(err_msg.into());
+    }
+
+    // New two-step parsing logic
+    // 1. Parse the response into a generic vector of [String, Value] tuples.
+    let generic_data: Vec<(String, Value)> = response.json().await?;
+
+    // 2. Manually iterate and convert each Value into our specific TimeframeData struct.
+    let mut portfolio_data = HashMap::new();
+    for (key, value) in generic_data {
+        let timeframe_data: TimeframeData = serde_json::from_value(value)?;
+        portfolio_data.insert(key, timeframe_data);
+    }
+
+    Ok(portfolio_data)
 }

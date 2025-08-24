@@ -38,11 +38,28 @@ async fn fetch_mark_prices() -> impl IntoResponse {
     }
 }
 
+async fn fetch_portfolio(Path(address_str): Path<String>) -> impl IntoResponse {
+    // We can reuse the address parsing and checksumming logic
+    let address = match Address::from_str(&address_str) {
+        Ok(addr) => addr,
+        Err(_) => {
+            return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "Invalid EVM address format"}))).into_response();
+        }
+    };
+    let checksummed_address = to_checksum(&address, None);
+
+    match api_handler::get_user_portfolio(&checksummed_address).await {
+        Ok(data) => (StatusCode::OK, Json(data)).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response(),
+    }
+}
+
 #[tokio::main]
 async fn main() {
     let app = Router::new()
         .route("/positions/:address", get(fetch_positions))
         .route("/mark-prices", get(fetch_mark_prices))
+        .route("/portfolio/:address", get(fetch_portfolio))
         .layer(CorsLayer::permissive());
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));

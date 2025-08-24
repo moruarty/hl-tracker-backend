@@ -3,19 +3,22 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct AssetMeta {
-    pub name: String,
-}
+pub struct AssetMeta { pub name: String }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct AssetCtx {
-    pub mark_px: String,
-}
+pub struct AssetCtx { pub mark_px: String }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Universe {
-    pub universe: Vec<AssetMeta>,
+pub struct Universe { pub universe: Vec<AssetMeta> }
+
+// THIS IS THE CRITICAL FIX: The #[serde(rename_all...)] line was missing here.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TimeframeData {
+    pub pnl_history: Vec<(u64, String)>,
+    pub account_value_history: Vec<(u64, String)>,
+    pub vlm: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
