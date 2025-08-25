@@ -1,6 +1,6 @@
 // src/api_handler.rs
 
-use crate::models::{self, AssetCtx, ClearinghouseState, Universe};
+use crate::models::{self, AssetCtx, CalendarMetrics, ClearinghouseState, Universe, UserFill};
 use reqwest::Client;
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -102,4 +102,99 @@ pub async fn get_user_portfolio(
     }
 
     Ok(portfolio_data)
+}
+
+pub async fn get_user_fills(user_address: &str) -> Result<Vec<UserFill>, Box<dyn Error>> {
+    let client = Client::new();
+    let request_body = json!({
+        "type": "userFills",
+        "user": user_address,
+        "aggregateByTime": true
+    });
+
+    let response = client
+        .post(HYPERLIQUID_API_URL)
+        .json(&request_body)
+        .send()
+        .await?;
+
+    if !response.status().is_success() {
+        let error_body = response.text().await.unwrap_or_else(|_| "Could not retrieve error body".to_string());
+        let err_msg = format!("API request for fills failed. Body: {}", error_body);
+        return Err(err_msg.into());
+    }
+
+    let fills: Vec<UserFill> = response.json().await?;
+    Ok(fills)
+}
+
+fn compute_calendar_metrics(fills: &[UserFill]) -> CalendarMetrics {
+    let mut daily_pnl: HashMap<String, f64> = HashMap::new();
+    let mut hold_all: Vec<f64> = Vec::new();
+    let mut hold_profit: Vec<f64> = Vec::new();
+    let mut hold_loss: Vec<f64> = Vec::new();
+    let mut long_trades = 0u64;
+    let mut short_trades = 0u64;
+    let mut long_wins = 0u64;
+    let mut short_wins = 0u64;
+
+    let mut fills_sorted = fills.to_vec();
+    fills_sorted.sort_by_key(|f| f.time);
+
+    let mut open_positions: HashMap<(String, String), Vec<(u64, f64)>> = HashMap::new();
+
+    for f in fills_sorted {
+        let pnl = f.closed_pnl.as_deref().unwrap_or("0").parse::<f64>().unwrap_or(0.0);
+        let day_key = (f.time / 86_400_000).to_string();
+
+        if f.dir.starts_with("Open") {
+            let side = if f.dir.contains("Long") { "Long" } else { "Short" };
+            let size = f.sz.parse::<f64>().unwrap_or(0.0);
+            open_positions.entry((f.coin.clone(), side.to_string())).or_default().push((f.time, size));
+        } else if f.dir.starts_with("Close") {
+            let side = if f.dir.contains("Long") { "Long" } else { "Short" };
+            let mut remaining = f.sz.parse::<f64>().unwrap_or(0.0);
+            let positions = open_positions.entry((f.coin.clone(), side.to_string())).or_default();
+            while remaining > 0.0 && !positions.is_empty() {
+                let (open_time, open_size) = positions[0];
+                let duration = f.time.saturating_sub(open_time) as f64;
+                hold_all.push(duration);
+                if pnl >= 0.0 { hold_profit.push(duration); } else { hold_loss.push(duration); }
+                if open_size > remaining {
+                    positions[0].1 = open_size - remaining;
+                    remaining = 0.0;
+                } else {
+                    remaining -= open_size;
+                    positions.remove(0);
+                }
+            }
+
+            daily_pnl.entry(day_key).and_modify(|v| *v += pnl).or_insert(pnl);
+
+            if side == "Long" {
+                long_trades += 1;
+                if pnl > 0.0 { long_wins += 1; }
+            } else {
+                short_trades += 1;
+                if pnl > 0.0 { short_wins += 1; }
+            }
+        }
+    }
+
+    let avg = |v: &Vec<f64>| if v.is_empty() { 0.0 } else { v.iter().sum::<f64>() / v.len() as f64 };
+
+    CalendarMetrics {
+        daily_pnl,
+        avg_hold_time: avg(&hold_all),
+        avg_hold_time_profit: avg(&hold_profit),
+        avg_hold_time_loss: avg(&hold_loss),
+        long_short_ratio: if short_trades == 0 { long_trades as f64 } else { long_trades as f64 / short_trades as f64 },
+        win_rate_long: if long_trades == 0 { 0.0 } else { long_wins as f64 / long_trades as f64 },
+        win_rate_short: if short_trades == 0 { 0.0 } else { short_wins as f64 / short_trades as f64 },
+    }
+}
+
+pub async fn get_calendar_metrics(user_address: &str) -> Result<CalendarMetrics, Box<dyn Error>> {
+    let fills = get_user_fills(user_address).await?;
+    Ok(compute_calendar_metrics(&fills))
 }

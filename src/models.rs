@@ -1,5 +1,6 @@
 // src/models.rs
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -61,4 +62,29 @@ pub struct Leverage {
     pub value: u32,
     #[serde(rename = "type")]
     pub leverage_type: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct UserFill {
+    #[serde(default)]
+    pub closed_pnl: Option<String>,
+    pub coin: String,
+    pub dir: String,
+    pub px: String,
+    pub side: String,
+    pub start_position: Option<String>,
+    pub sz: String,
+    pub time: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CalendarMetrics {
+    pub daily_pnl: HashMap<String, f64>,
+    pub avg_hold_time: f64,
+    pub avg_hold_time_profit: f64,
+    pub avg_hold_time_loss: f64,
+    pub long_short_ratio: f64,
+    pub win_rate_long: f64,
+    pub win_rate_short: f64,
 }
