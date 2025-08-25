@@ -84,6 +84,8 @@ pub struct CalendarMetrics {
     pub avg_hold_time: f64,
     pub avg_hold_time_profit: f64,
     pub avg_hold_time_loss: f64,
+    pub avg_hold_time_long: f64,
+    pub avg_hold_time_short: f64,
     pub long_short_ratio: f64,
     pub win_rate_long: f64,
     pub win_rate_short: f64,
