@@ -12,10 +12,9 @@ use axum::{
 };
 use ethers_core::types::Address;
 use ethers_core::utils::to_checksum;
-use std::{env, net::SocketAddr, panic, str::FromStr, time::Duration};
+use std::{env, net::SocketAddr, str::FromStr, time::Duration};
 use tower_http::cors::{Any, CorsLayer};
 
-// --- HANDLERS (No changes here) ---
 async fn fetch_positions(Path(address_str): Path<String>) -> impl IntoResponse {
     let address = match Address::from_str(&address_str) {
         Ok(addr) => addr,
@@ -28,6 +27,7 @@ async fn fetch_positions(Path(address_str): Path<String>) -> impl IntoResponse {
         }
     };
     let checksummed_address = to_checksum(&address, None);
+
     match api_handler::get_user_positions(&checksummed_address).await {
         Ok(positions) => (StatusCode::OK, Json(positions)).into_response(),
         Err(e) => (
@@ -37,6 +37,7 @@ async fn fetch_positions(Path(address_str): Path<String>) -> impl IntoResponse {
             .into_response(),
     }
 }
+
 async fn fetch_mark_prices() -> impl IntoResponse {
     match api_handler::get_all_mark_prices().await {
         Ok(prices) => (StatusCode::OK, Json(prices)).into_response(),
@@ -47,6 +48,7 @@ async fn fetch_mark_prices() -> impl IntoResponse {
             .into_response(),
     }
 }
+
 async fn fetch_portfolio(Path(address_str): Path<String>) -> impl IntoResponse {
     let address = match Address::from_str(&address_str) {
         Ok(addr) => addr,
@@ -59,6 +61,7 @@ async fn fetch_portfolio(Path(address_str): Path<String>) -> impl IntoResponse {
         }
     };
     let checksummed_address = to_checksum(&address, None);
+
     match api_handler::get_user_portfolio(&checksummed_address).await {
         Ok(data) => (StatusCode::OK, Json(data)).into_response(),
         Err(e) => (
@@ -68,6 +71,7 @@ async fn fetch_portfolio(Path(address_str): Path<String>) -> impl IntoResponse {
             .into_response(),
     }
 }
+
 async fn fetch_calendar(Path(address_str): Path<String>) -> impl IntoResponse {
     let address = match Address::from_str(&address_str) {
         Ok(addr) => addr,
@@ -80,6 +84,7 @@ async fn fetch_calendar(Path(address_str): Path<String>) -> impl IntoResponse {
         }
     };
     let checksummed_address = to_checksum(&address, None);
+
     match api_handler::get_calendar_metrics(&checksummed_address).await {
         Ok(data) => (StatusCode::OK, Json(data)).into_response(),
         Err(e) => (
@@ -90,36 +95,35 @@ async fn fetch_calendar(Path(address_str): Path<String>) -> impl IntoResponse {
     }
 }
 
-
 #[tokio::main]
 async fn main() {
-    // --- NEW: Add a panic hook to catch any panic and log it ---
-    panic::set_hook(Box::new(|panic_info| {
-        eprintln!("--- APPLICATION PANICKED ---");
-        eprintln!("Panic Info: {:?}", panic_info);
-    }));
-
-    println!("[Tracer] 1: Application starting...");
-
     // --- CORS ---
-    let mut origins: Vec<String> = vec!["http://localhost:5173".to_string()];
+    //
+    // You can keep these two ENV vars optional:
+    //   FRONTEND_ORIGIN=http://localhost:5173
+    //   VERCEL_ORIGIN=https://your-vercel-domain.vercel.app
+    //
+    // If not set, we include sensible defaults.
+    let mut origins: Vec<String> = vec![
+        "http://localhost:5173".to_string(), // local dev
+    ];
     if let Ok(v) = env::var("FRONTEND_ORIGIN") {
         origins.push(v);
     }
     if let Ok(v) = env::var("VERCEL_ORIGIN") {
         origins.push(v);
     }
+
     let allow_list = origins
         .into_iter()
         .filter_map(|o| o.parse().ok())
         .collect::<Vec<_>>();
+
     let cors = CorsLayer::new()
-        .allow_origin(allow_list)
+        .allow_origin(allow_list) // explicit allow-list (recommended)
         .allow_methods(Any)
         .allow_headers(Any)
         .max_age(Duration::from_secs(86400));
-    
-    println!("[Tracer] 2: CORS configured.");
 
     // --- Router ---
     let app = Router::new()
@@ -130,13 +134,13 @@ async fn main() {
         .route("/calendar/:address", get(fetch_calendar))
         .layer(cors);
 
-    println!("[Tracer] 3: Router configured.");
-
     // --- Bind address/port ---
+    // Cloud Run supplies PORT; default to 3000 for local dev.
     let port: u16 = env::var("PORT").ok().and_then(|s| s.parse().ok()).unwrap_or(8080);
+
+
+    // Bind to 0.0.0.0 for container / Cloud Run; fine locally too.
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
-    
-    println!("[Tracer] 4: Address binding configured for {}.", addr);
     println!("🚀 Server listening on http://{addr}");
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
