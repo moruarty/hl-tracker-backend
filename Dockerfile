@@ -3,7 +3,10 @@ FROM rust:latest as builder
 
 WORKDIR /app
 
-# Install the MUSL target to create a truly static binary
+# NEW: Install the MUSL C compiler which is required by the 'ring' crate
+RUN apt-get update && apt-get install -y musl-tools
+
+# Install the MUSL target for Rust
 RUN rustup target add x86_64-unknown-linux-musl
 
 # Cache deps using the MUSL target
@@ -29,7 +32,7 @@ RUN useradd -m -u 10001 appuser
 # Copy the statically-linked binary. The path has changed because of the MUSL target.
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/hyperliquid_tracker /usr/local/bin/app
 
-# NEW: Ensure the binary is executable by the user
+# Ensure the binary is executable by the user
 RUN chmod +x /usr/local/bin/app
 
 ENV RUST_LOG=info
