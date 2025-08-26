@@ -3,7 +3,7 @@ FROM rust:latest as builder
 
 WORKDIR /app
 
-# NEW: Install the MUSL C compiler which is required by the 'ring' crate
+# Install the MUSL C compiler which is required by the 'ring' crate
 RUN apt-get update && apt-get install -y musl-tools
 
 # Install the MUSL target for Rust
@@ -29,14 +29,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 # Create non-root user
 RUN useradd -m -u 10001 appuser
 
-# Copy the statically-linked binary. The path has changed because of the MUSL target.
+# Copy the statically-linked binary
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/hyperliquid_tracker /usr/local/bin/app
 
-# Ensure the binary is executable by the user
+# Ensure the binary is executable
 RUN chmod +x /usr/local/bin/app
 
 ENV RUST_LOG=info
 EXPOSE 8080
+
+# NEW: Set environment variables to point to the SSL certs for HTTPS requests
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+ENV SSL_CERT_DIR=/etc/ssl/certs
+
 USER appuser
 
 CMD ["/usr/local/bin/app"]
