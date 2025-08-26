@@ -1,5 +1,5 @@
 # -------- builder stage --------
-# This stage remains the same, as it correctly produces the static binary.
+# This stage is correct and remains the same.
 FROM rust:latest as builder
 
 WORKDIR /app
@@ -20,19 +20,16 @@ RUN mkdir -p src && echo "fn main(){}" > src/main.rs \
 COPY src ./src
 RUN RUSTFLAGS='-C target-feature=-avx,-avx2,-sse4.1,-sse4.2' cargo build --release --target x86_64-unknown-linux-musl
 
-# -------- NEW Distroless runtime stage --------
-# Use Google's static distroless image, which is the most minimal possible base.
+# -------- FINAL Distroless runtime stage --------
 FROM gcr.io/distroless/static-debian11
 
-# Copy the static binary from the builder stage
+# Copy the static binary from the builder stage into the root
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/hyperliquid_tracker /app
 
-WORKDIR /app
 EXPOSE 8080
 
-# The distroless image has a default non-root user 'nonroot' with UID 65532.
-# We no longer need to create our own.
+# The distroless image has a default non-root user 'nonroot' with UID 65532
 USER 65532
 
-# Set the entrypoint to our application
+# Set the entrypoint to our application using its full path
 CMD ["/app"]
