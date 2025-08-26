@@ -127,6 +127,7 @@ async fn main() {
 
     // --- Router ---
     let app = Router::new()
+        .route("/healthz", get(|| async { "ok" }))
         .route("/positions/:address", get(fetch_positions))
         .route("/mark-prices", get(fetch_mark_prices))
         .route("/portfolio/:address", get(fetch_portfolio))
@@ -135,10 +136,8 @@ async fn main() {
 
     // --- Bind address/port ---
     // Cloud Run supplies PORT; default to 3000 for local dev.
-    let port: u16 = env::var("PORT")
-        .ok()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(3000);
+    let port: u16 = env::var("PORT").ok().and_then(|s| s.parse().ok()).unwrap_or(8080);
+
 
     // Bind to 0.0.0.0 for container / Cloud Run; fine locally too.
     let addr = SocketAddr::from(([0, 0, 0, 0], port));

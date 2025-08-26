@@ -1,5 +1,5 @@
 # -------- builder stage --------
-FROM rust:1.85 as builder
+FROM rust:latest as builder
 # ^ use a recent stable; 1.85+ supports edition2024
 
 WORKDIR /app
