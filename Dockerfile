@@ -12,12 +12,14 @@ RUN rustup target add x86_64-unknown-linux-musl
 # Cache deps using the MUSL target
 COPY Cargo.toml Cargo.lock ./
 RUN mkdir -p src && echo "fn main(){}" > src/main.rs \
- && cargo build --release --target x86_64-unknown-linux-musl \
+ # MODIFIED: Add RUSTFLAGS to create a more compatible binary
+ && RUSTFLAGS='-C target-feature=-avx,-avx2,-sse4.1,-sse4.2' cargo build --release --target x86_64-unknown-linux-musl \
  && rm -rf src
 
 # Now copy your actual source and build for MUSL
 COPY src ./src
-RUN cargo build --release --target x86_64-unknown-linux-musl
+# MODIFIED: Add RUSTFLAGS here as well
+RUN RUSTFLAGS='-C target-feature=-avx,-avx2,-sse4.1,-sse4.2' cargo build --release --target x86_64-unknown-linux-musl
 
 # -------- runtime stage --------
 FROM debian:bookworm-slim

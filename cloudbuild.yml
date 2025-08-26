@@ -1,22 +1,22 @@
 steps:
-# 1. Build the container image (same as before)
+# 1. Build the container image
 - name: 'gcr.io/cloud-builders/docker'
   id: 'Build'
   args: ['build', '-t', 'europe-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/hl-tracker-backend:$COMMIT_SHA', '.']
 
-# 2. NEW: Run the container in the background to test it
+# 2. Run the container in the background to test it
 - name: 'gcr.io/cloud-builders/docker'
   id: 'Test Run'
   args:
     - 'run'
-    - '-d' # Detached mode (run in background)
+    - '-d'
     - '--name'
     - 'test-container'
     - '-e'
-    - 'PORT=8080' # Mimic the Cloud Run environment
+    - 'PORT=8080'
     - 'europe-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/hl-tracker-backend:$COMMIT_SHA'
 
-# 3. NEW: Wait for the app to start (or crash) and then print its logs
+# 3. Wait a few seconds and then print its logs
 - name: 'gcr.io/cloud-builders/docker'
   id: 'Check Logs'
   entrypoint: 'sh'
@@ -28,19 +28,7 @@ steps:
       docker logs test-container
       echo "--- ⏹️ Container Logs End ⏹️ ---"
 
-# 4. Deploy to Cloud Run (COMMENTED OUT FOR NOW)
-# Once the 'Check Logs' step shows the server starting successfully,
-# you can delete the test steps (2 and 3) and uncomment this deployment step.
-# - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-#   entrypoint: gcloud
-#   args:
-#     - 'run'
-#     - 'deploy'
-#     - 'hl-tracker-backend'
-#     - '--image=europe-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/hl-tracker-backend:$COMMIT_SHA'
-#     - '--region=europe-west1'
-#     - '--allow-unauthenticated'
+# (Deployment step remains commented out)
 
-# Keep your existing options block
 options:
   logging: CLOUD_LOGGING_ONLY
