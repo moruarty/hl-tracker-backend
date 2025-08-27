@@ -106,6 +106,7 @@ async fn main() {
     // If not set, we include sensible defaults.
     let mut origins: Vec<String> = vec![
         "http://localhost:5173".to_string(), // local dev
+        "https://hl-tracker-frontend.vercel.app/".to_string(), // production frontend
     ];
     if let Ok(v) = env::var("FRONTEND_ORIGIN") {
         origins.push(v);
