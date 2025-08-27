@@ -146,3 +146,7 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
+
+
+
+// gcloud run deploy hl-tracker-backend   --region=europe-west1   --source .   --allow-unauthenticated
