@@ -5,7 +5,7 @@ mod models;
 
 use axum::{
     extract::Path,
-    http::StatusCode,
+    http::{HeaderValue, StatusCode},
     response::{IntoResponse, Json},
     routing::get,
     Router,
@@ -13,7 +13,7 @@ use axum::{
 use ethers_core::types::Address;
 use ethers_core::utils::to_checksum;
 use std::{env, net::SocketAddr, str::FromStr, time::Duration};
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 
 async fn fetch_positions(Path(address_str): Path<String>) -> impl IntoResponse {
     let address = match Address::from_str(&address_str) {
@@ -98,32 +98,25 @@ async fn fetch_calendar(Path(address_str): Path<String>) -> impl IntoResponse {
 #[tokio::main]
 async fn main() {
     // --- CORS ---
-    //
-    // You can keep these two ENV vars optional:
-    //   FRONTEND_ORIGIN=http://localhost:5173
-    //   VERCEL_ORIGIN=https://your-vercel-domain.vercel.app
-    //
-    // If not set, we include sensible defaults.
-    let mut origins: Vec<String> = vec![
-        "http://localhost:5173".to_string(), // local dev
-        "https://hl-tracker-frontend.vercel.app/".to_string(), // production frontend
+    // Explicit allow-list. Important: NO trailing slash on origins.
+    // You can also extend this list from env if you like.
+    let mut origin_values: Vec<HeaderValue> = vec![
+        "http://localhost:5173".parse().unwrap(),
+        "https://hl-tracker-frontend.vercel.app".parse().unwrap(),
     ];
     if let Ok(v) = env::var("FRONTEND_ORIGIN") {
-        origins.push(v);
+        if let Ok(hv) = v.parse() { origin_values.push(hv); }
     }
     if let Ok(v) = env::var("VERCEL_ORIGIN") {
-        origins.push(v);
+        if let Ok(hv) = v.parse() { origin_values.push(hv); }
     }
 
-    let allow_list = origins
-        .into_iter()
-        .filter_map(|o| o.parse().ok())
-        .collect::<Vec<_>>();
-
     let cors = CorsLayer::new()
-        .allow_origin(allow_list) // explicit allow-list (recommended)
-        .allow_methods(Any)
-        .allow_headers(Any)
+        .allow_origin(AllowOrigin::list(origin_values))
+        .allow_methods(Any)   // all methods (you currently use only GET)
+        .allow_headers(Any)   // allow custom headers if you add any later
+        // If you ever send cookies/auth from the frontend, flip this to true:
+        .allow_credentials(false)
         .max_age(Duration::from_secs(86400));
 
     // --- Router ---
@@ -136,18 +129,10 @@ async fn main() {
         .layer(cors);
 
     // --- Bind address/port ---
-    // Cloud Run supplies PORT; default to 3000 for local dev.
     let port: u16 = env::var("PORT").ok().and_then(|s| s.parse().ok()).unwrap_or(8080);
-
-
-    // Bind to 0.0.0.0 for container / Cloud Run; fine locally too.
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     println!("🚀 Server listening on http://{addr}");
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
-
-
-
-// gcloud run deploy hl-tracker-backend   --region=europe-west1   --source .   --allow-unauthenticated
